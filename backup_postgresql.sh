@@ -23,7 +23,7 @@ mkdir -p "$BACKUP_DIR"
 
 # Create PostgreSQL dump, compress it, and upload to Google Drive
 echo "[$(date)]: Creating backup and uploading to Google Drive..."
-pg_dump -h "$DB_HOST" -U "$DB_USER" -F c -d "$DB_NAME" | gzip > "$BACKUP_DIR/$BACKUP_FILE"
+PGPASSWORD='YOUR_DB_PASSWORD' pg_dump -h "$DB_HOST" -U "$DB_USER" -F c -d "$DB_NAME" | gzip > "$BACKUP_DIR/$BACKUP_FILE"
 
 if rclone copy "$BACKUP_DIR/$BACKUP_FILE" "$REMOTE_PATH"; then
     echo "[$(date)]: Backup uploaded successfully. Cleaning up local file..."
