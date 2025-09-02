@@ -1,29 +1,42 @@
 #!/bin/bash
 
+set -euo pipefail
+IFS=$'\n\t'
+umask 077
+
 echo "[$(date)]: Starting PostgreSQL backup"
 
 # Variables
-REMOTE_NAME="gdrive"
-REMOTE_FOLDER="rclone-postgresql-backup"
-REMOTE_PATH="${REMOTE_NAME}:/${REMOTE_FOLDER}/"
-
 DB_HOST="localhost"
 DB_USER="postgres"
-DB_NAME="mydb"
+DB_PASSWORD="YOUR_DB_PASSWORD"
+DB_NAME="YOUR_DB_NAME"
+
+REMOTE_NAME="gdrive"
+REMOTE_FOLDER="rclone-postgresql-backup/${DB_NAME}"
+REMOTE_PATH="${REMOTE_NAME}:/${REMOTE_FOLDER}/"
 
 TIMESTAMP=$(date +%s%3N)
 BACKUP_FILE="${DB_NAME}-${TIMESTAMP}.dump.gz"
-BACKUP_DIR="/tmp/postgresql-backup"
+BACKUP_DIR="/tmp/postgresql-backup/${DB_NAME}"
 
-MAX_FILES=9
+MAX_FILES=25
 FILES_PATTERN="^${DB_NAME}-[0-9]+\.dump\.gz$"
+
+# ====================================================================
+
+# Quick database reachability check
+if command -v pg_isready >/dev/null; then
+    PGPASSWORD="$DB_PASSWORD" pg_isready -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" >/dev/null \
+        || { echo "[$(date)]: Database not ready. Aborting."; exit 1; }
+fi
 
 # Ensure backup directory exists
 mkdir -p "$BACKUP_DIR"
 
 # Create PostgreSQL dump, compress it, and upload to Google Drive
 echo "[$(date)]: Creating backup and uploading to Google Drive..."
-PGPASSWORD='YOUR_DB_PASSWORD' pg_dump -h "$DB_HOST" -U "$DB_USER" -F c -d "$DB_NAME" | gzip > "$BACKUP_DIR/$BACKUP_FILE"
+PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -U "$DB_USER" -F c -d "$DB_NAME" | gzip > "$BACKUP_DIR/$BACKUP_FILE"
 
 if rclone copy "$BACKUP_DIR/$BACKUP_FILE" "$REMOTE_PATH"; then
     echo "[$(date)]: Backup uploaded successfully. Cleaning up local file..."
